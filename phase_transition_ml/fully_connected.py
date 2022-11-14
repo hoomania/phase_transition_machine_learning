@@ -14,10 +14,3 @@ class FCN(nn.Module):
         result = nnf.relu(self.fc1(result))
         result = torch.sigmoid(self.fc2(result))
         return result
-
-
-device = "cuda" if torch.cuda.is_available() else "cpu"
-print(device)
-
-# model = FCN()
-# print(model)

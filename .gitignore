@@ -1,4 +1,5 @@
 # Pycache and compiled python files.
+.idea/
 __pycache__/
 *py[cod]
 
