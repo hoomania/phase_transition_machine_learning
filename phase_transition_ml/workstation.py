@@ -12,7 +12,7 @@ def connect_to_sql():
 
     query = "INSERT INTO samples(tensor, energy, mag, beta, temp) VALUES (%s,%s,%s,%s,%s)"
     json_test = json.dumps([1, -1, 1, 1])
-    stds = [(json_test, 2, 4, 6, 1/6)]
+    stds = [(json_test, 2, 4, 6, 1 / 6)]
 
     my_cursor.executemany(query, stds)
     db.commit()
@@ -61,4 +61,8 @@ def read_samples():
         print(f'{i}: ', my_cursor.rowcount, "records are inserted.")
 
 
-read_samples()
+# import numpy as np
+x = np.array(np.arange(25))
+l = np.array_split(x, 2)
+print(x)
+print(l)
