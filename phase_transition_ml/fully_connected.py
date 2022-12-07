@@ -3,14 +3,19 @@ import random
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as nnf
-import monte_carlo as mc
+# import torch.nn.functional as nnf
+# import monte_carlo as mc
 import matplotlib.pyplot as plt
 import mysql.connector
+from sklearn.metrics import confusion_matrix
+from sklearn.metrics import classification_report
+from sklearn.metrics import accuracy_score
+import seaborn as sbrn
+import pandas as pd
 
 
 class FCN(nn.Module):
-    def __init__(self, input_dim: int, output_dim: int, hidden_layer: int = 100):
+    def __init__(self, input_dim: int, output_dim: int, hidden_layer: int = 20):
         super(FCN, self).__init__()
         self.fc1 = nn.Linear(input_dim, hidden_layer)
         self.relu = nn.ReLU()
@@ -28,7 +33,45 @@ class FCN(nn.Module):
     #     return torch.sigmoid(self.fc2(x))
 
 
+def make_data_from_file():
+    ising_data = pd.read_csv('../data/ising_model.csv')
+    query = [i for i in ising_data.get('Temp').drop_duplicates()]
+
+    class_left_train = []
+    class_right_train = []
+    class_left_test = []
+    class_right_test = []
+    for i in [2.4000000000000004, 2.5, 2.6, 2.7, 4.7, 4.800000000000001, 4.9]:
+        query.remove(i)
+
+    for i in query:
+        train = ising_data.query(f'Temp == {i}').head(80).drop(['Temp', 'Unnamed: 0'], axis=1)
+        test = ising_data.query(f'Temp == {i}').tail(20).drop(['Temp', 'Unnamed: 0'], axis=1)
+
+        if i < 2.5:
+            target = [1, 0]
+            for j in range(len(train.values) - 1):
+                class_left_train.append([train.values[j], target])
+
+            for q in range(len(test.values) - 1):
+                class_left_test.append([test.values[q], target])
+        else:
+            target = [0, 1]
+            for j in range(len(train.values) - 1):
+                class_right_train.append([train.values[j], target])
+
+            for q in range(len(test.values) - 1):
+                class_right_test.append([test.values[q], target])
+
+    data_train = class_left_train + class_right_train
+    random.shuffle(data_train)
+    data_test = class_left_test + class_right_test
+
+    return [data_train, data_test]
+
+
 def make_train_test_set():
+    print(f'Samples are loading...')
     db = mysql.connector.connect(user='admin', passwd='password', host='localhost', database='monte_carlo')
     my_cursor = db.cursor()
 
@@ -46,7 +89,9 @@ def make_train_test_set():
 
     train_set = []
     for i in result:
-        train_set.append([np.array(json.loads(i[0])).flatten(), [0, 1]])
+        feature = np.array(json.loads(i[0])).flatten()
+        target = np.array([0, 1])
+        train_set.append(np.array([feature, target], dtype=object))
 
     list_left = random.sample(range(3001, 13000), samples_per_side)
     query_in_left = ''
@@ -59,184 +104,252 @@ def make_train_test_set():
     result = my_cursor.fetchall()
 
     for i in result:
-        train_set.append([np.array(json.loads(i[0])).flatten(), [1, 0]])
+        feature = np.array(json.loads(i[0])).flatten()
+        target = np.array([1, 0])
+        train_set.append(np.array([feature, target], dtype=object))
 
     random.shuffle(train_set)
 
     query_not_in = query_in_left + ', ' + query_in_right
-    query = f'select tensor, beta from samples where id >= 1 and id <= 13000 and id not in ({query_not_in})'
+    query = f'select tensor, beta from samples where id >= 1 and id <= 13000 and beta >= 0.28 and beta <= 0.4 and id not in ({query_not_in})'
     my_cursor.execute(query)
     result = my_cursor.fetchall()
 
-    test_set_random = random.sample(range(1, 12000), samples_test)
+    test_set_random = random.sample(range(1, 2500), 50)
     test_set = []
     for i in test_set_random:
-        if 0.28 <= result[i][1] <= 0.4:
-            target = [0, 1]
-        else:
-            target = [1, 0]
-        test_set.append([np.array(json.loads(result[i][0])).flatten(), target])
+        # if 0.28 <= result[i][1] <= 0.4:
+        #     target = [0, 1]
+        # else:
+        #     target = [1, 0]
+        feature = torch.tensor(np.array(json.loads(result[i][0])).flatten(), dtype=torch.float32)
+        target = torch.tensor([0, 1], dtype=torch.float32)
+        test_set.append([feature, target])
 
-    # train_set = data_set[0]
-    # test_set = data_set[1]
-    data_set = []
-    for d in [train_set, test_set]:
-        x_list = []
-        y_list = []
-        for i in range(len(d) - 1):
-            x_list.append(d[i][0])
-            y_list.append(d[i][1])
+    query = f'select tensor, beta from samples where id >= 1 and id <= 13000 and beta >= 0.40 and id not in ({query_not_in})'
+    my_cursor.execute(query)
+    result = my_cursor.fetchall()
 
-        # print(f'Samples are ready!')
-        data_set.append([torch.tensor(np.array(x_list), dtype=torch.float32),
-                         torch.tensor(np.array(y_list), dtype=torch.float32)])
-        # X = torch.tensor(np.array(X_list), dtype=torch.float32)
-        # Y = torch.tensor(np.array(Y_list), dtype=torch.float32)
+    test_set_random = random.sample(range(2501, 9500), 50)
+    # test_set = []
+    for i in test_set_random:
+        # if 0.28 <= result[i][1] <= 0.4:
+        #     target = [0, 1]
+        # else:
+        #     target = [1, 0]
+        feature = torch.tensor(np.array(json.loads(result[i][0])).flatten(), dtype=torch.float32)
+        target = torch.tensor([1, 0], dtype=torch.float32)
+        test_set.append([feature, target])
 
-    return data_set
-    # return [train_set, test_set]
+    print(f'Samples are ready!\n')
+    return [train_set, test_set]
 
 
 def train_network(data_set, iterations):
-    # data_set = make_train_test_set()
-    # train_set = data_set[0]
-    # test_set = data_set[1]
-    # X_list = []
-    # Y_list = []
-    # for i in range(len(train_set)):
-    #     X_list.append(train_set[i][0])
-    #     Y_list.append(train_set[i][1])
-    #
-    # print(f'Samples are ready!')
+    feature = data_set[0][0][0]
 
-    # X = torch.tensor(np.array(X_list), dtype=torch.float32)
-    # Y = torch.tensor(np.array(Y_list), dtype=torch.float32)
+    n_samples = len(data_set[0])
+    n_features = feature.shape[0]
+    print(f'Samples: {n_samples} \nFeatures: {n_features}')
 
-    feature = data_set[0][0]
-    target = data_set[0][1]
-
-    n_samples, n_features = feature.shape
-    print(f'Samples: {n_samples}, \nFeatures: {n_features}')
-
-    # X_test = torch.tensor(test_set[0][0], dtype=torch.float32)
-
-    input_size = n_features
-    output_size = 2
-
-    model = FCN(input_size, output_size, hidden_layer=100)
-
-    # print(f'prediction before training:  {model(X_test)}')
-
-    learning_rate = 0.01
-
-    loss = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-
-    for epoch in range(iterations):
-        # forward
-        y_pred = model(feature)
-
-        # loss
-        lss = loss(y_pred, target)
-
-        # gradient
-        lss.backward()
-
-        # update weights
-        optimizer.step()
-        optimizer.zero_grad()
-
-        if epoch % 200 == 0:
-            print(f'epoch {epoch}: loss = {lss:.8f}')
-
-    acc = 0
-    test_set = data_set[1]
-    for t in range(0, len(test_set[0]) - 1):
-        # x_test = torch.tensor(test_set[0][t], dtype=torch.float32)
-        with torch.no_grad():
-            predict = model(test_set[0][t]).tolist()
-            acc += np.inner(predict, test_set[1][t])
-            # print(f'\nprediction for test sample {t}: {predict} :: target is {test_set[1][t]}')
-    print(f'Mean Accuracy: {acc / len(test_set[0])}')
-
-
-def train_network_online_sample(data_set, iterations):
-    # data_set = make_train_test_set()
-    train_set = data_set[0]
-    test_set = data_set[1]
-    X_list = []
-    Y_list = []
-    for i in range(len(train_set)):
-        X_list.append(train_set[i][0])
-        Y_list.append(train_set[i][1])
-
-    print(f'Samples are ready!')
-
-    X = torch.tensor(np.array(X_list), dtype=torch.float32)
-    Y = torch.tensor(np.array(Y_list), dtype=torch.float32)
-
-    n_samples, n_features = X.shape
-    print(f'Samples: {n_samples}, \nFeatures: {n_features}')
-
-    # X_test = torch.tensor(test_set[0][0], dtype=torch.float32)
-
-    input_size = n_features
-    output_size = 2
-
-    # f1 = nn.Flatten()
-    l1 = nn.Linear(32 * 32, 20)
-    r1 = nn.ReLU()
-    # l2 = nn.Linear(20, 100)
-    # r2 = nn.ReLU()
-    l3 = nn.Linear(20, 2)
-    s3 = nn.Sigmoid()
-    # s3 = nn.Softmax()
+    hidden_layer_len = 32
     model = nn.Sequential(
-        # f1,
-        l1,
-        r1,
-        # l2,
-        # r2,
-        l3,
-        s3,
+        # nn.Flatten(),
+        nn.Linear(n_features, hidden_layer_len),
+        nn.ReLU(),
+        nn.Linear(hidden_layer_len, 2),
+        nn.Sigmoid(),
+        # nn.Softmax(dim=0)
     )
 
-    # criterion = torch.nn.MSELoss()
     criterion = torch.nn.CrossEntropyLoss()
-    optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
 
-    # iterations = 5000
+    batches = np.array_split(data_set[0], 10)
 
+    loss_values = []
+    acc_values = []
     for epoch in range(iterations):
-        # Forward pass: Compute predicted y by passing x to the model
-        y_pred = model(X)
+        for batch in batches:
+            feature = torch.tensor(np.array([child[0] for child in batch]), dtype=torch.float32)
+            target = torch.tensor(np.array([child[1] for child in batch]), dtype=torch.float32)
 
-        # Compute and print loss
-        loss = criterion(y_pred, Y)
+            # Forward pass: Compute predicted y by passing x to the model
+            y_pred = model(feature)
 
-        # Zero gradients, perform a backward pass, and update the weights.
-        optimizer.zero_grad()
+            # Compute and print loss
+            loss = criterion(y_pred, target)
 
-        # perform a backward pass (backpropagation)
-        loss.backward()
+            # Zero gradients, perform a backward pass, and update the weights.
+            optimizer.zero_grad()
 
-        # Update the parameters
-        optimizer.step()
+            # perform a backward pass (backpropagation)
+            loss.backward()
 
-        if epoch % 200 == 0:
-            print(f'epoch {epoch}: loss = {loss:.8f}')
+            # Update the parameters
+            optimizer.step()
 
-    acc = 0
+            # if epoch % epoch_step_print == 0:
+            #     print(f'epoch {epoch}: loss = {loss:.8f}')
+        loss_values.append(loss.item())
+        acc = check_test_set(model, data_set[1])
+        acc_values.append(acc)
+        print(f'Epoch {epoch + 1}/{iterations}\n loss: {loss.item():.5f}, acc: {acc:.5f}')
+
+    # test_set = data_set[0]
+    # as_train_set = []
+    # for item in test_set:
+    #     as_train_set.append([
+    #         torch.tensor(item[0], dtype=torch.float32),
+    #         torch.tensor(item[1], dtype=torch.float32)
+    #     ])
+    # test_set = as_train_set
+
+    test_set = data_set[1]
+    cf_target = []
+    cf_predict = []
     for t in range(0, len(test_set) - 1):
-        X_test = torch.tensor(test_set[t][0], dtype=torch.float32)
         with torch.no_grad():
-            predict = model(X_test).tolist()
-            acc += np.inner(predict, test_set[t][1])
-            print(f'\nprediction for test sample {t}: {predict} :: target is {test_set[t][1]}')
-    print(f'Mean Accuracy: {acc / len(test_set)}')
+            cf_predict.append(torch.IntTensor.item(np.round(model(test_set[t][0])[0])))
+            cf_target.append(torch.IntTensor.item(test_set[t][1][0]))
+            # print(f'model: {model(test_set[t][0]).tolist()}, target: {np.round(model(test_set[t][0]).tolist())}')
 
+    confusion_graph(confusion_matrix(cf_target, cf_predict))
+    loss_graph(loss_values)
+    acc_graph(acc_values)
+    print(classification_report(cf_target, cf_predict, zero_division=True))
+
+
+def loss_graph(values):
+    # plt.scatter([i for i in range(len(values))], values, s=0.7)
+    plt.plot([i for i in range(len(values))], values)
+    plt.title("Loss Diagram")
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss Value")
+    plt.show()
+
+
+def acc_graph(values):
+    # plt.scatter([i for i in range(len(values))], values, s=0.7)
+    plt.plot([i for i in range(len(values))], values)
+    plt.title("Accuracy Diagram")
+    plt.xlabel("Epoch")
+    plt.ylabel("Accuracy Value")
+    plt.show()
+
+
+def confusion_graph(cf_matrix):
+    fx = sbrn.heatmap(cf_matrix, annot=True, cmap='copper')
+
+    # labels the title and x, y axis of plot
+    fx.set_title('\nConfusion Matrix\n')
+    fx.set_xlabel('Predicted Values')
+    fx.set_ylabel('Actual Values ')
+
+    # labels the boxes
+    fx.xaxis.set_ticklabels(['0', '1'])
+    fx.yaxis.set_ticklabels(['0', '1'])
+
+    plt.show()
+
+
+def check_test_set(model, test_set):
+    cf_target = []
+    cf_predict = []
+    for t in range(0, len(test_set) - 1):
+        with torch.no_grad():
+            cf_predict.append(torch.IntTensor.item(np.round(model(test_set[t][0])[0])))
+            cf_target.append(torch.IntTensor.item(test_set[t][1][0]))
+
+    return accuracy_score(cf_target, cf_predict)
+
+
+def train_network_develop(data_set, iterations):
+    feature = data_set[0][0][0]
+
+    n_samples = len(data_set[0])
+    n_features = feature.shape[0]
+    print(f'Samples: {n_samples} \nFeatures: {n_features}')
+
+    hidden_layer_len = 100
+    model = nn.Sequential(
+        # nn.Flatten(),
+        nn.Linear(n_features, hidden_layer_len),
+        nn.ReLU(),
+        nn.Linear(hidden_layer_len, 2),
+        nn.Sigmoid(),
+        # nn.Softmax(dim=0)
+    )
+
+    criterion = torch.nn.BCELoss()
+    # criterion = torch.nn.CrossEntropyLoss()
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
+
+    split_data = np.array_split(data_set[0], 10)
+    batches = []
+    for bunch in split_data:
+        for item in bunch:
+            # print(item[1])
+            x = torch.tensor(item[0], dtype=torch.float32)
+            y = torch.tensor(item[1], dtype=torch.float32)
+            batches.append([x, y])
+    # print(batches)
+    loss_values = []
+    acc_values = []
+    for epoch in range(iterations):
+        for batch in batches:
+            feature = batch[0]
+            target = batch[1]
+
+            # Forward pass: Compute predicted y by passing x to the model
+            y_pred = model(feature)
+
+            # Compute and print loss
+            loss = criterion(y_pred, target)
+
+            # Zero gradients, perform a backward pass, and update the weights.
+            optimizer.zero_grad()
+
+            # perform a backward pass (backpropagation)
+            loss.backward()
+
+            # Update the parameters
+            optimizer.step()
+
+            # if epoch % epoch_step_print == 0:
+            #     print(f'epoch {epoch}: loss = {loss:.8f}')
+        # loss_values.append(loss.item())
+        # acc = check_test_set(model, data_set[1])
+        # acc_values.append(acc)
+        acc = 0
+        print(f'Epoch {epoch + 1}/{iterations}\n loss: {loss.item():.5f}, acc: {acc:.5f}')
+
+    test_set = data_set[0]
+    as_train_set = []
+    for item in test_set:
+        as_train_set.append([
+            torch.tensor(item[0], dtype=torch.float32),
+            torch.tensor(item[1], dtype=torch.float32)
+        ])
+    test_set = as_train_set
+    #
+    # # test_set = data_set[1]
+    cf_target = []
+    cf_predict = []
+    for t in range(0, len(test_set) - 1):
+        with torch.no_grad():
+            cf_predict.append(torch.IntTensor.item(np.round(model(test_set[t][0])[0])))
+            cf_target.append(torch.IntTensor.item(test_set[t][1][0]))
+            # print(f'model: {model(test_set[t][0]).tolist()}, target: {np.round(model(test_set[t][0]).tolist())}')
+
+    confusion_graph(confusion_matrix(cf_target, cf_predict))
+    loss_graph(loss_values)
+    acc_graph(acc_values)
+    print(classification_report(cf_target, cf_predict, zero_division=True))
+
+
+# data_set_ = make_data_from_file()
+# train_network_develop(data_set_, iterations=10)
 
 data_set_ = make_train_test_set()
-train_network(data_set_, iterations=500)
-print('\n----------------\n')
-# train_network_online_sample(data_set_, 2000)
+train_network(data_set_, iterations=400)

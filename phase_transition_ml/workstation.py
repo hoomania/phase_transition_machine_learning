@@ -4,6 +4,8 @@ import datetime
 import numpy as np
 import mysql.connector
 import json
+import matplotlib.pyplot as plt
+import pandas as pd
 
 
 def connect_to_sql():
@@ -61,8 +63,50 @@ def read_samples():
         print(f'{i}: ', my_cursor.rowcount, "records are inserted.")
 
 
-# import numpy as np
-x = np.array(np.arange(25))
-l = np.array_split(x, 2)
-print(x)
-print(l)
+# ising_data = pd.read_csv('../data/ising_model.csv')
+# query = [i for i in ising_data.get('Temp').drop_duplicates()]
+#
+# class_left_train = []
+# class_right_train = []
+# class_left_test = []
+# class_right_test = []
+# for i in [2.4000000000000004, 2.5, 2.6, 2.7, 4.7, 4.800000000000001, 4.9]:
+#     query.remove(i)
+#
+# # print(len(ising_data.query(f'Temp > 2.5')))
+# # print(len(ising_data.query(f'Temp < 2.5')))
+# count_left = 0
+# count_right = 0
+# for i in query:
+#     if i < 2.5:
+#         target = [0, 1]
+#     else:
+#         target = [1, 0]
+#     train = ising_data.query(f'Temp == {i}').head(80).drop(['Temp', 'Unnamed: 0'], axis=1)
+#     test = ising_data.query(f'Temp == {i}').tail(20).drop(['Temp', 'Unnamed: 0'], axis=1)
+#     for j in range(len(train.values) - 1):
+#         class_left_train.append([train.values[j], target])
+#     for q in range(len(test.values) - 1):
+#         class_left_test.append([test.values[q], target])
+# #
+# # print(train[0])
+# print(len(class_left_train[0][0]))
+# print(query)
+# head = ising_data.head()
+#
+# tensor = ising_data.drop(['Temp', 'Unnamed: 0'], axis=1)
+
+# import torch
+# # import numpy as np
+# from torch.utils.data import TensorDataset, DataLoader
+#
+# my_x = [np.array([[1.0, 2], [3, 4]]), np.array([[5., 6], [7, 8]])]  # a list of numpy arrays
+# my_y = [np.array([4.]), np.array([2.])]  # another list of numpy arrays (targets)
+#
+# tensor_x = torch.Tensor(my_x)  # transform to torch tensor
+# tensor_y = torch.Tensor(my_y)
+#
+# my_dataset = TensorDataset(tensor_x, tensor_y)  # create your datset
+# my_dataloader = DataLoader(my_dataset)  # create your dataloader
+# print(my_dataset)
+# print(my_dataloader)
