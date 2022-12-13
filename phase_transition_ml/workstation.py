@@ -26,23 +26,17 @@ def connect_to_sql():
 
 
 def mc_sampling():
-    mc_object = mc.MonteCarlo(32)
+    mc_object = mc.MonteCarlo(20)
 
-    sample_0 = []
-    sample_1 = []
-    print('Start: ', datetime.datetime.now())
-    for b in np.arange(0.28, 10.08, 0.05):
-        sample_0.append(mc_object.sample_without_relaxation(1000, b))
-        sample_1.append(mc_object.sampling(1000, b))
+    sample_list = []
+    print(f'Start:  {datetime.datetime.now()}')
+    for temp in np.arange(0.5, 4.0, 0.1):
+        sample_list.append(mc_object.sampling(100, temp, temp_input=True))
 
-    print('  End: ', datetime.datetime.now())
-    mc_object.energy_mean_graph(sample_0)
-    mc_object.energy_mean_graph(sample_1)
+    print(f'  \nEnd:  {datetime.datetime.now()}')
+    mc_object.energy_mean_graph(sample_list)
 
-    pickle.dump(sample_0, open('../data/samples_random_generator.pkl', 'wb'))
-    pickle.dump(sample_1, open('../data/samples_mc.pkl', 'wb'))
-    # load_file = pickle.load(open('./test.pkl', 'rb'))
-    # print(load_file)
+    pickle.dump(sample_list, open('../data/samples_mc.pkl', 'wb'))
 
 
 def read_samples():
@@ -63,50 +57,31 @@ def read_samples():
         print(f'{i}: ', my_cursor.rowcount, "records are inserted.")
 
 
-# ising_data = pd.read_csv('../data/ising_model.csv')
-# query = [i for i in ising_data.get('Temp').drop_duplicates()]
-#
-# class_left_train = []
-# class_right_train = []
-# class_left_test = []
-# class_right_test = []
-# for i in [2.4000000000000004, 2.5, 2.6, 2.7, 4.7, 4.800000000000001, 4.9]:
-#     query.remove(i)
-#
-# # print(len(ising_data.query(f'Temp > 2.5')))
-# # print(len(ising_data.query(f'Temp < 2.5')))
-# count_left = 0
-# count_right = 0
-# for i in query:
-#     if i < 2.5:
-#         target = [0, 1]
-#     else:
-#         target = [1, 0]
-#     train = ising_data.query(f'Temp == {i}').head(80).drop(['Temp', 'Unnamed: 0'], axis=1)
-#     test = ising_data.query(f'Temp == {i}').tail(20).drop(['Temp', 'Unnamed: 0'], axis=1)
-#     for j in range(len(train.values) - 1):
-#         class_left_train.append([train.values[j], target])
-#     for q in range(len(test.values) - 1):
-#         class_left_test.append([test.values[q], target])
-# #
-# # print(train[0])
-# print(len(class_left_train[0][0]))
-# print(query)
-# head = ising_data.head()
-#
-# tensor = ising_data.drop(['Temp', 'Unnamed: 0'], axis=1)
+def sample(length: int):
+    print(f'Start:  {datetime.datetime.now()}')
+    temp_low = 0.5
+    temp_high = 4.9
+    temp_step = 0.1
+    temperatures = np.linspace(temp_high, temp_low, int((temp_high - temp_low) / temp_step) + 1)
+    row = []
+    temp_value = []
+    for i in range(10):
+        print(f'configure {i}:')
+        mc_object = mc.MonteCarlo(length)
+        for temp in temperatures:
+            samples = mc_object.sampling(10, temp, beta_inverse=True)
+            # [tensor_list, energy_list, mag_list, beta, 1/beta]
+            for sample in samples:
+                array = [i for i in sample]
+                row.append(array)
+                temp_value.append(temp)
 
-# import torch
-# # import numpy as np
-# from torch.utils.data import TensorDataset, DataLoader
-#
-# my_x = [np.array([[1.0, 2], [3, 4]]), np.array([[5., 6], [7, 8]])]  # a list of numpy arrays
-# my_y = [np.array([4.]), np.array([2.])]  # another list of numpy arrays (targets)
-#
-# tensor_x = torch.Tensor(my_x)  # transform to torch tensor
-# tensor_y = torch.Tensor(my_y)
-#
-# my_dataset = TensorDataset(tensor_x, tensor_y)  # create your datset
-# my_dataloader = DataLoader(my_dataset)  # create your dataloader
-# print(my_dataset)
-# print(my_dataloader)
+    dataframe = pd.DataFrame(row)
+    dataframe['Temp'] = temp_value
+    dataframe.to_csv(fr"../data/data_L{length}.csv")
+    print(f'\nEnd:  {datetime.datetime.now()}')
+
+
+length_array = [40, 50, 60]
+for len in length_array:
+    sample(len)
