@@ -1,10 +1,10 @@
 import monte_carlo as mc
+import model.simple as sngsmpl
 import pickle
 import datetime
 import numpy as np
 import mysql.connector
 import json
-import matplotlib.pyplot as plt
 import pandas as pd
 
 
@@ -57,7 +57,37 @@ def read_samples():
         print(f'{i}: ', my_cursor.rowcount, "records are inserted.")
 
 
-def sample(length: int):
+def sampling(length: int):
+    print(f'Start:  {datetime.datetime.now()}')
+    temp_low = 0.5
+    temp_high = 0.6
+    temp_step = 0.1
+    temperatures = np.linspace(temp_high, temp_low, int((temp_high - temp_low) / temp_step) + 1)
+    row = []
+    temp_value = []
+    for i in range(1):
+        print(f'configure {i}:')
+        mc_object = mc.MonteCarlo(length, lattice_dim=1)
+        for temp in temperatures:
+            samples = mc_object.sampling_r45(1, temp, beta_inverse=True)
+            # [tensor_list, energy_list, mag_list, beta, 1/beta]
+            for sample in samples:
+                print(np.array(sample).reshape(8, 8))
+                print(len(sample))
+                array = np.delete(sample, np.where(sample == 0))
+                print(array)
+                print(len(array))
+                # array = [i if i != 0 i for i in sample]
+                row.append(array)
+                temp_value.append(temp)
+
+    dataframe = pd.DataFrame(row)
+    dataframe['Temp'] = temp_value
+    dataframe.to_csv(fr"../data/data_r45_L{length}_02.csv")
+    print(f'\nEnd:  {datetime.datetime.now()}')
+
+
+def sampling_jahromi(length: int):
     print(f'Start:  {datetime.datetime.now()}')
     temp_low = 0.5
     temp_high = 4.9
@@ -69,7 +99,8 @@ def sample(length: int):
         print(f'configure {i}:')
         mc_object = mc.MonteCarlo(length)
         for temp in temperatures:
-            samples = mc_object.sampling(10, temp, beta_inverse=True)
+            samples = mc_object.sampling_jahromi(10, True)
+            print(f"temp: {temp:0.2}, finished!")
             # [tensor_list, energy_list, mag_list, beta, 1/beta]
             for sample in samples:
                 array = [i for i in sample]
@@ -78,10 +109,34 @@ def sample(length: int):
 
     dataframe = pd.DataFrame(row)
     dataframe['Temp'] = temp_value
-    dataframe.to_csv(fr"../data/data_L{length}.csv")
+    dataframe.to_csv(fr"../data/data_jahromi_irl_L{length}.csv")
     print(f'\nEnd:  {datetime.datetime.now()}')
 
 
-length_array = [40, 50, 60]
-for len in length_array:
-    sample(len)
+def sampling_hooman(length: int):
+    print(f'Start:  {datetime.datetime.now()}')
+    temp_low = 0.5
+    temp_high = 4.9
+    temp_step = 0.1
+    temperatures = np.linspace(temp_high, temp_low, int((temp_high - temp_low) / temp_step) + 1)
+    row = []
+    temp_value = []
+    for i in range(10):
+        print(f'configure {i}:')
+        mc_object = mc.MonteCarlo(length)
+        for temp in temperatures:
+            samples = mc_object.sampling_hooman(10, temp, beta_inverse=True)
+            print(f"temp: {temp:.2}, finished!")
+            # [tensor_list, energy_list, mag_list, beta, 1/beta]
+            for sample in samples:
+                array = [i for i in sample]
+                row.append(array)
+                temp_value.append(temp)
+
+    dataframe = pd.DataFrame(row)
+    dataframe['Temp'] = temp_value
+    dataframe.to_csv(fr"../data/data_hooman_03_L{length}.csv")
+    print(f'\nEnd:  {datetime.datetime.now()}')
+
+
+sampling(4)

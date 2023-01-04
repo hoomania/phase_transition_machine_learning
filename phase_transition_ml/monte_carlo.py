@@ -1,53 +1,16 @@
 import numpy
 import numpy as np
 import matplotlib.pyplot as plt
+from model import lattice as ltc, simple
 
 
 class MonteCarlo:
 
-    def __init__(self, lattice_side_length: int):
+    def __init__(self, lattice_side_length: int, lattice_dim: int = 2, lattice_structure: str = 'simple'):
         self.length = lattice_side_length
-        first_sample_param = self.relaxation_step_length(100)
-        self.step_length = first_sample_param
-        self.lattice = self.generate_lattice()
-        # self.first_sample = first_sample_param[1]
-
-    def convert_to_toric(self, matrix: numpy.ndarray) -> numpy.ndarray:
-        length = self.length
-        toric = np.zeros([length, length * 2])
-        rows_index = [np.arange(0, length, 2), np.arange(1, length, 2)]
-
-        for i in range(2):
-            for row in rows_index[i]:
-                for col_index in range(length):
-                    toric[row][(2 * col_index) + i] = matrix[row][col_index]
-
-        return toric
-
-    def generate_lattice(self) -> numpy.ndarray:
-        lattice = np.random.randint(2, size=(self.length, self.length))
-        return 2 * lattice - 1
-
-    def node_energy(self, lattice: np.ndarray, x: int, y: int, coupling_value: float) -> int:
-        xm, xp, ym, yp = (x - 1) % self.length, (x + 1) % self.length, (y - 1) % self.length, (y + 1) % self.length
-        return -1 * coupling_value * lattice[x, y] * (
-                lattice[xp, y] +
-                lattice[xm, y] +
-                lattice[x, yp] +
-                lattice[x, ym])
-
-    def random_node_energy(self, lattice: np.ndarray) -> tuple:
-        i = np.random.randint(self.length)
-        j = np.random.randint(self.length)
-        return self.node_energy(lattice, i, j, 1), i, j
-
-    def lattice_energy(self, lattice: np.ndarray) -> int:
-        energy = 0
-        for i in range(self.length):
-            for j in range(self.length):
-                energy += self.node_energy(lattice, i, j, 1)
-
-        return energy
+        first_sample_param = self.relaxation_step_length(sample_count=100)
+        self.time_relaxation = first_sample_param
+        self.lattice_model = simple.Simple(lattice_side_length, lattice_dim)
 
     def sampling(self, sample_count: int, beta: float, beta_inverse: bool = False) -> list:
         if beta_inverse:
@@ -56,7 +19,7 @@ class MonteCarlo:
         tensor_list = []
         tensor = self.lattice
         for i in range(10 * self.length ** 3):
-            rnd_node = self.random_node_energy(tensor)
+            rnd_node = self.lattice_structure.node_energy(tensor)
             diff_energy = -2 * rnd_node[0]
             if diff_energy < 0 or np.random.random() < np.exp(-1 * diff_energy * beta):
                 tensor[rnd_node[1], rnd_node[2]] = -1 * tensor[rnd_node[1], rnd_node[2]]
@@ -70,9 +33,81 @@ class MonteCarlo:
 
             if sample_count == len(tensor_list) + 1:
                 if beta_inverse:
-                    print(f'temp: {1/beta:.2f}, #: {sample_count}, completed!')
+                    print(f'temp: {1 / beta:.2f}, #: {sample_count}, completed!')
                 else:
                     print(f'beta: {beta:.2f}, #: {sample_count}%, completed!')
+
+            tensor_list.append(tensor.flatten())
+
+        return tensor_list
+
+    def check_condition(self, tensor: np.ndarray, beta: float) -> np.ndarray:
+        rnd_cell = self.lattice_model.random_cell_energy_1d(tensor)
+        diff_energy = -2 * rnd_cell[1]
+        if diff_energy < 0 or np.random.random() < np.exp(-1 * diff_energy * beta):
+            tensor[rnd_cell[0]] = -1 * tensor[rnd_cell[0]]
+
+        return tensor
+
+    def sampling_r45(self, sample_count: int, beta: float, beta_inverse: bool = False) -> list:
+        if beta_inverse:
+            beta = 1 / beta
+
+        lattice = ltc.Lattice(self.length, dim=1)
+        tensor = lattice.generate_r45()
+        for i in range(10 * self.length ** 3):
+            tensor = self.check_condition(tensor, beta)
+
+        tensor_list = []
+        while len(tensor_list) < sample_count:
+            for i in range(self.time_relaxation):
+                tensor = self.check_condition(tensor, beta)
+
+            if sample_count == len(tensor_list) + 1:
+                if beta_inverse:
+                    print(f'temp: {1 / beta:.2f}, #: {sample_count}, completed!')
+                else:
+                    print(f'beta: {beta:.2f}, #: {sample_count}%, completed!')
+
+            tensor_list.append(tensor)
+
+        return tensor_list
+
+    def sampling_jahromi(self, sample_count: int, init_random_lattice: bool = False) -> list:
+        if init_random_lattice:
+            tensor = np.random.randint(2, size=(self.length, self.length))
+            tensor = 2 * tensor - 1
+        else:
+            tensor = np.array([1 for i in range(self.length * self.length)], dtype=int)
+            tensor = tensor.reshape(self.length, self.length)
+
+        tensor_list = []
+
+        while len(tensor_list) < sample_count:
+            for i in range(self.length ** 3):
+                rnd_x = np.random.randint(self.length)
+                rnd_y = np.random.randint(self.length)
+                tensor[rnd_x, rnd_y] = -1 * tensor[rnd_x, rnd_y]
+
+            tensor_list.append(tensor.flatten())
+
+        return tensor_list
+
+    def sampling_hooman(self, sample_count: int, beta: float, beta_inverse: bool = False) -> list:
+        if beta_inverse:
+            beta = 1 / beta
+
+        tensor_list = []
+        while len(tensor_list) < sample_count:
+            for _ in range(self.step_length):
+                tensor = self.generate_lattice()
+
+            for _ in range(100):
+                for i in range(self.length):
+                    for j in range(self.length):
+                        diff_energy = -2 * self.node_energy(tensor, i, j, 1)
+                        if diff_energy < 0 or np.random.random() < np.exp(-1 * diff_energy * beta):
+                            tensor[i, j] = -1 * tensor[i, j]
 
             tensor_list.append(tensor.flatten())
 
@@ -138,3 +173,36 @@ class MonteCarlo:
         plt.xlabel("T")
         plt.ylabel("<E>")
         plt.show()
+
+    def convert_to_toric(self, matrix: numpy.ndarray) -> numpy.ndarray:
+        length = self.length
+        toric = np.zeros([length, length * 2])
+        rows_index = [np.arange(0, length, 2), np.arange(1, length, 2)]
+
+        for i in range(2):
+            for row in rows_index[i]:
+                for col_index in range(length):
+                    toric[row][(2 * col_index) + i] = matrix[row][col_index]
+
+        return toric
+
+    def node_energy(self, lattice: np.ndarray, x: int, y: int, coupling_value: float) -> int:
+        xm, xp, ym, yp = (x - 1) % self.length, (x + 1) % self.length, (y - 1) % self.length, (y + 1) % self.length
+        return -1 * coupling_value * lattice[x, y] * (
+                lattice[xp, y] +
+                lattice[xm, y] +
+                lattice[x, yp] +
+                lattice[x, ym])
+
+    def random_node_energy(self, lattice: np.ndarray) -> tuple:
+        i = np.random.randint(self.length)
+        j = np.random.randint(self.length)
+        return self.node_energy(lattice, i, j, 1), i, j
+
+    def lattice_energy(self, lattice: np.ndarray) -> int:
+        energy = 0
+        for i in range(self.length):
+            for j in range(self.length):
+                energy += self.node_energy(lattice, i, j, 1)
+
+        return energy
