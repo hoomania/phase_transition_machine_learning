@@ -37,7 +37,7 @@ class Honeycomb:
         s = 0
         for i in nn:
             s += lattice[i]
-        return index, self.j_value * s * s
+        return index, -self.j_value * lattice[index] * s
 
     def random_cell_energy_2d(self, lattice: np.ndarray) -> tuple:
         x = np.random.randint(self.lattice_length)
@@ -48,4 +48,4 @@ class Honeycomb:
         for i in nn:
             s += lattice[i[0], i[1]]
 
-        return x, y, self.j_value * s * s
+        return x, y, -self.j_value * lattice[x, y] * s
