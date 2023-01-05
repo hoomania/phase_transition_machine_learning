@@ -7,45 +7,55 @@ class MonteCarlo:
 
     def __init__(self, lattice_length: int, lattice_dim: int = 1, lattice_profile: str = 'square'):
         self.length = lattice_length
+        self.lattice_dim = lattice_dim
         self.time_relaxation = self.relaxation_step_length(sample_count=100)
+
+        lattice = ltc.Lattice(lattice_length, lattice_dim)
+        self.tensor = lattice.generate()
+
         if lattice_profile == 'square':
             self.lattice_model = square.Square(lattice_length, lattice_dim)
-        if lattice_profile == 'square-ice':
+        if lattice_profile == 'square_ice':
             self.lattice_model = square_ice.SquareIce(lattice_length, lattice_dim)
         if lattice_profile == 'triangle':
             self.lattice_model = triangle.Triangle(lattice_length, lattice_dim)
         if lattice_profile == 'honeycomb':
             self.lattice_model = honeycomb.Honeycomb(lattice_length, lattice_dim)
 
-    def check_condition(self, tensor: np.ndarray, beta: float) -> np.ndarray:
-        rnd_cell = self.lattice_model.random_cell_energy_1d(tensor)
+    def check_condition_1d(self, beta: float):
+        rnd_cell = self.lattice_model.random_cell_energy_1d(self.tensor)
         diff_energy = -2 * rnd_cell[1]
         if diff_energy < 0 or np.random.random() < np.exp(-1 * diff_energy * beta):
-            tensor[rnd_cell[0]] = -1 * tensor[rnd_cell[0]]
+            self.tensor[rnd_cell[0]] = -1 * self.tensor[rnd_cell[0]]
 
-        return tensor
+        # return tensor
+
+    def check_condition_2d(self, beta: float):
+        rnd_cell = self.lattice_model.random_cell_energy_2d(self.tensor)
+        diff_energy = -2 * rnd_cell[2]
+        if diff_energy < 0 or np.random.random() < np.exp(-1 * diff_energy * beta):
+            self.tensor[rnd_cell[0], rnd_cell[1]] = -1 * self.tensor[rnd_cell[0], rnd_cell[1]]
+
+        # return tensor
 
     def sampling(self, sample_count: int, beta: float, beta_inverse: bool = False) -> list:
         if beta_inverse:
             beta = 1 / beta
 
-        lattice = ltc.Lattice(self.length, dim=1)
-        tensor = lattice.generate()
+        check_func = f"check_condition_{self.lattice_dim}d"
+
         for i in range(10 * self.length ** 3):
-            tensor = self.check_condition(tensor, beta)
+            getattr(self, check_func)(beta)
 
         tensor_list = []
         while len(tensor_list) < sample_count:
             for i in range(self.time_relaxation):
-                tensor = self.check_condition(tensor, beta)
+                getattr(self, check_func)(beta)
 
-            if sample_count == len(tensor_list) + 1:
-                if beta_inverse:
-                    print(f'temp: {1 / beta:.2f}, #: {sample_count}, completed!')
-                else:
-                    print(f'beta: {beta:.2f}, #: {sample_count}%, completed!')
-
-            tensor_list.append(tensor)
+            if self.lattice_dim == 2:
+                tensor_list.append(self.tensor.flatten())
+            else:
+                tensor_list.append(self.tensor)
 
         return tensor_list
 
