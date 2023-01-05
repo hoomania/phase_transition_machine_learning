@@ -8,7 +8,14 @@ class Lattice:
         self.length_r45 = length * 2
         self.dim = dim
 
-    def generate(self) -> np.ndarray:
+    def generate(self, lattice_type: str = 'random') -> np.ndarray:
+        if lattice_type == 'uniform':
+            rnd_spin_value = 2 * np.random.randint(2) - 1
+            if rnd_spin_value == 1:
+                return np.ones((self.length, self.length), dtype=int)
+            else:
+                return np.zeros((self.length, self.length), dtype=int) - 1
+
         lattice = np.random.randint(2, size=(self.length, self.length))
         lattice = 2 * lattice - 1
 
