@@ -1,63 +1,52 @@
 import numpy as np
+import model.lattice as ltc
 
 
 class Triangle:
 
-    def __init__(self, lattice: np.ndarray, j_value: float = 1.):
+    def __init__(self, lattice_length: int, lattice_dim: int = 1, j_value: float = 1.):
         self.j_value = j_value
-        self.lattice = lattice
+        self.lattice_dim = lattice_dim
+        self.lattice_length = lattice_length
+        self.vector_length = lattice_length * lattice_length
 
-        if len(lattice.shape) == 2:
-            self.dim = 2
-            self.len = lattice.shape[0]
-
-        if len(lattice.shape) == 1:
-            self.dim = 1
-            self.len = len(lattice)
-            self.len_root = np.sqrt(len(lattice))
+    def generate_lattice(self) -> np.ndarray:
+        return ltc.Lattice(self.lattice_length, self.lattice_dim).generate()
 
     def nn_1d(self, index: int) -> tuple:
-        cell_0 = (index + self.len_root + 1) % self.len
-        cell_1 = (index + self.len_root - 1) % self.len
-        cell_2 = (index - self.len_root + 1) % self.len
-        cell_3 = (index - self.len_root - 1) % self.len
-        cell_4 = (index + 2) % self.len
-        cell_5 = (index - 2) % self.len
+        cell_0 = (index + self.lattice_length) % self.vector_length
+        cell_1 = (index - self.lattice_length) % self.vector_length
+        cell_2 = (index + self.lattice_length - 1) % self.vector_length
+        cell_3 = (index - self.lattice_length + 1) % self.vector_length
+        cell_4 = (index + 1) % self.vector_length
+        cell_5 = (index - 1) % self.vector_length
 
         return cell_0, cell_1, cell_2, cell_3, cell_4, cell_5
 
     def nn_2d(self, x: int, y: int) -> tuple:
-        xp1 = (x + 1) % self.len
-        xm1 = (x - 1) % self.len
-        yp1 = (y + 1) % self.len
-        ym1 = (y - 1) % self.len
-        xp2 = (x + 2) % self.len
-        xm2 = (x - 2) % self.len
+        xp1 = (x + 1) % self.lattice_length
+        xm1 = (x - 1) % self.lattice_length
+        yp1 = (y + 1) % self.lattice_length
+        ym1 = (y - 1) % self.lattice_length
 
-        return xp1, xm1, xp2, xm2, yp1, ym1
+        return [x, ym1], [x, yp1], [xm1, y], [xp1, y], [xm1, yp1], [xp1, ym1]
 
-    def node_energy(self) -> float:
-        if self.dim == 1:
-            index = np.random.randint(self.len)
-            nn = self.nn_1d(index)
+    def random_cell_energy_1d(self, lattice: np.ndarray) -> tuple:
+        index = np.random.randint(self.vector_length)
+        nn = self.nn_1d(index)
 
-            return -self.j_value * self.lattice[index] * (
-                    self.lattice[nn[0]] +
-                    self.lattice[nn[1]] +
-                    self.lattice[nn[2]] +
-                    self.lattice[nn[3]] +
-                    self.lattice[nn[4]] +
-                    self.lattice[nn[5]])
+        s = 0
+        for i in nn:
+            s += lattice[i]
+        return index, -self.j_value * lattice[index] * s
 
-        if self.dim == 2:
-            x = np.random.randint(self.len)
-            y = np.random.randint(self.len)
-            nn = self.nn_2d(x, y)
+    def random_cell_energy_2d(self, lattice: np.ndarray) -> tuple:
+        x = np.random.randint(self.lattice_length)
+        y = np.random.randint(self.lattice_length)
+        nn = self.nn_2d(x, y)
 
-            return -self.j_value * self.lattice[x, y] * (
-                    self.lattice[nn[0], nn[5]] +
-                    self.lattice[nn[2], y] +
-                    self.lattice[nn[0], nn[4]] +
-                    self.lattice[nn[1], nn[4]] +
-                    self.lattice[nn[3], y] +
-                    self.lattice[nn[1], nn[5]])
+        s = 0
+        for i in nn:
+            s += lattice[i[0], i[1]]
+
+        return x, y, -self.j_value * lattice[x, y] * s
