@@ -5,13 +5,16 @@ from model import lattice as ltc, square, square_ice, triangle, honeycomb
 
 class MonteCarlo:
 
-    def __init__(self, lattice_length: int, lattice_dim: int = 1, lattice_profile: str = 'square'):
+    def __init__(self, lattice_length: int, lattice_dim: int = 1, lattice_profile: str = 'square', r45: bool = False):
         self.length = lattice_length
         self.lattice_dim = lattice_dim
         self.time_relaxation = self.relaxation_step_length(sample_count=100)
 
         lattice = ltc.Lattice(lattice_length, lattice_dim)
-        self.tensor = lattice.generate()
+        if not r45:
+            self.tensor = lattice.generate()
+        else:
+            self.tensor = lattice.generate_r45()
 
         if lattice_profile == 'square':
             self.lattice_model = square.Square(lattice_length, lattice_dim)
@@ -28,21 +31,44 @@ class MonteCarlo:
         if diff_energy < 0 or np.random.random() < np.exp(-1 * diff_energy * beta):
             self.tensor[rnd_cell[0]] = -1 * self.tensor[rnd_cell[0]]
 
-        # return tensor
-
     def check_condition_2d(self, beta: float):
-        rnd_cell = self.lattice_model.random_cell_energy_2d(self.tensor)
-        diff_energy = -2 * rnd_cell[2]
-        if diff_energy < 0 or np.random.random() < np.exp(-1 * diff_energy * beta):
+        rnd_cell = self.lattice_model.random_cell_diff_energy_flip_2d(self.tensor)
+        # diff_energy = -2 * rnd_cell[2]
+        if rnd_cell[2] < 0 or np.random.random() < np.exp(-1 * rnd_cell[2] * beta):
             self.tensor[rnd_cell[0], rnd_cell[1]] = -1 * self.tensor[rnd_cell[0], rnd_cell[1]]
 
-        # return tensor
+    def check_condition_r45_2d(self, beta: float):
+        rnd_cell = self.lattice_model.random_cell_diff_energy_flip_r45_2d(self.tensor)
+        # diff_energy = -2 * rnd_cell[2]
+        if rnd_cell[2] < 0 or np.random.random() < np.exp(-1 * rnd_cell[2] * beta):
+            self.tensor[rnd_cell[0], rnd_cell[1]] = -1 * self.tensor[rnd_cell[0], rnd_cell[1]]
 
     def sampling(self, sample_count: int, beta: float, beta_inverse: bool = False) -> list:
         if beta_inverse:
             beta = 1 / beta
 
         check_func = f"check_condition_{self.lattice_dim}d"
+
+        for i in range(10 * self.length ** 3):
+            getattr(self, check_func)(beta)
+
+        tensor_list = []
+        while len(tensor_list) < sample_count:
+            for i in range(self.time_relaxation):
+                getattr(self, check_func)(beta)
+
+            if self.lattice_dim == 2:
+                tensor_list.append(self.tensor.flatten())
+            else:
+                tensor_list.append(self.tensor)
+
+        return tensor_list
+
+    def sampling_r45(self, sample_count: int, beta: float, beta_inverse: bool = False) -> list:
+        if beta_inverse:
+            beta = 1 / beta
+
+        check_func = f"check_condition_r45_{self.lattice_dim}d"
 
         for i in range(10 * self.length ** 3):
             getattr(self, check_func)(beta)

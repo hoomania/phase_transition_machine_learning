@@ -50,3 +50,14 @@ class Triangle:
             s += lattice[i[0], i[1]]
 
         return x, y, -self.j_value * lattice[x, y] * s
+
+    def random_cell_diff_energy_flip_2d(self, lattice: np.ndarray) -> tuple:
+        x = np.random.randint(self.lattice_length)
+        y = np.random.randint(self.lattice_length)
+        nn = self.nn_2d(x, y)
+
+        s = 0
+        for i in nn:
+            s += lattice[i[0], i[1]]
+
+        return x, y, -2 * self.j_value * lattice[x, y] * s
