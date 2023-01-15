@@ -1,6 +1,7 @@
 # Pycache and compiled python files.
 __pycache__/
 *py[cod]
+.idea/
 
 # Juyter notebook checkpoints
 .ipynb_checkpoints
