@@ -1,5 +1,6 @@
 import numpy as np
-import model.lattice as ltc
+# import model.lattice as ltc
+from phase_transition_ml.model import lattice as ltc
 
 
 class Honeycomb:

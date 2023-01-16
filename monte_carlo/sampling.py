@@ -1,4 +1,5 @@
-import monte_carlo as mc
+# import monte_carlo as mc
+from phase_transition_ml.monte_carlo import monte_carlo as mc
 import datetime
 import numpy as np
 import pandas as pd
@@ -18,6 +19,7 @@ class Sampling:
         self.temp_step = profile['temp_step']
         self.samples_per_temp = profile['samples_per_temp']
         self.beta_inverse = profile['beta_inverse']
+        self.path_output = profile['path_output']
 
     def take_sample(self):
         ts_sampling = datetime.datetime.now()
@@ -33,7 +35,7 @@ class Sampling:
         row = []
         temp_value = []
         for i in range(self.configs):
-            print(f'\n---- Configure {i} Start ----')
+            print(f'\n---- Configure {i} Started ----')
             ts_configs = datetime.datetime.now()
             mc_object = mc.MonteCarlo(self.lattice_length, self.lattice_dim, self.lattice_profile)
             for temp in temperatures:
@@ -59,16 +61,16 @@ class Sampling:
             print(f'---------------------')
             print(Fore.RESET)
 
-        print(f'\n#### Saving Data Started ####')
+        print(f'\n#### Saving Data Is In Progress ####')
         dataframe = pd.DataFrame(row)
         dataframe['Temp'] = temp_value
-        if exists(f"../data/data_{self.lattice_profile}_L{self.lattice_length}.csv"):
+        if exists(f"{self.path_output}/data_{self.lattice_profile}_L{self.lattice_length}.csv"):
             stamp = int(datetime.datetime.now().timestamp())
             file_name = f'data_{self.lattice_profile}_L{self.lattice_length}_{stamp}.csv'
         else:
             file_name = f'data_{self.lattice_profile}_L{self.lattice_length}.csv'
 
-        dataframe.to_csv(fr"../data/{file_name}")
+        dataframe.to_csv(fr"{self.path_output}/{file_name}")
         print(f'\n#### Saving Data Finished ####')
 
         te_sampling = datetime.datetime.now()

@@ -1,5 +1,6 @@
 import numpy as np
-import model.lattice as ltc
+# import model.lattice as ltc
+from phase_transition_ml.model import lattice as ltc
 
 
 class Square:
@@ -53,7 +54,7 @@ class Square:
         return x, y, -self.j_value * lattice[x, y] * s
 
     def random_cell_diff_energy_flip_2d(self, lattice: np.ndarray) -> tuple:
-        cell_info = self.random_cell_diff_energy_flip_2d(lattice)
+        cell_info = self.random_cell_energy_2d(lattice)
         return cell_info[0], cell_info[1], -2 * cell_info[2]
 
     def generate_lattice_r45(self) -> np.ndarray:
