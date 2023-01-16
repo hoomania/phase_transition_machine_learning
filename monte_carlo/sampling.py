@@ -1,5 +1,4 @@
-# import monte_carlo as mc
-from phase_transition_ml.monte_carlo import monte_carlo as mc
+from phyml.monte_carlo import monte_carlo as mc
 import datetime
 import numpy as np
 import pandas as pd

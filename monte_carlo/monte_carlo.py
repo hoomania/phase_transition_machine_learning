@@ -1,7 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-# from model import lattice as ltc, square, square_ice, triangle, honeycomb
-from phase_transition_ml.model import lattice as ltc, square, square_ice, triangle, honeycomb
+from phyml.model import lattice as ltc, square, square_ice, triangle, honeycomb
 
 
 class MonteCarlo:
