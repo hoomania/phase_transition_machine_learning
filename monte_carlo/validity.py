@@ -177,7 +177,7 @@ class CheckData:
                 configs[i] = self.data.query(f'Index >= {i * config_len} and Index < {(i + 1) * config_len}').drop(
                     ['Temp', 'Index'], axis=1)
 
-        fig, axes = plt.subplots(nrows=int(cnt / 5), ncols=5, figsize=(12, 4))
+        fig, axes = plt.subplots(nrows=int(cnt / 5), ncols=5, figsize=(12, 8))
         fig.tight_layout(pad=2.0)
         for i in range(int(cnt / 5)):
             for j in range(5):

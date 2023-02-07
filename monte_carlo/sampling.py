@@ -16,6 +16,8 @@ class Sampling:
         self.temp_low = profile['temp_low']
         self.temp_high = profile['temp_high']
         self.temp_step = profile['temp_step']
+        self.temp_step_auto = profile['temp_step_auto']
+        self.temp_list = profile['temp_list']
         self.samples_per_temp = profile['samples_per_temp']
         self.beta_inverse = profile['beta_inverse']
         self.path_output = profile['path_output']
@@ -24,7 +26,11 @@ class Sampling:
         ts_sampling = datetime.datetime.now()
         print(f'\n---- Sampling Start ----')
 
-        temperatures = np.linspace(self.temp_high, self.temp_low, int((self.temp_high - self.temp_low) / self.temp_step) + 1)
+        if self.temp_step_auto:
+            temperatures = np.linspace(self.temp_high, self.temp_low,
+                                       int((self.temp_high - self.temp_low) / self.temp_step) + 1)
+        else:
+            temperatures = self.temp_list
         # temperatures = [0. for _ in range(int(np.ceil((self.temp_high - self.temp_low) / self.temp_step)) + 1)]
         # temp_high = self.temp_high
         # for i in range(len(temperatures)):
@@ -97,7 +103,11 @@ class Sampling:
         ts_sampling = datetime.datetime.now()
         print(f'\n---- Sampling Start ----')
 
-        temperatures = np.linspace(self.temp_high, self.temp_low, int((self.temp_high - self.temp_low) / self.temp_step) + 1)
+        if self.temp_step_auto:
+            temperatures = np.linspace(self.temp_high, self.temp_low,
+                                       int((self.temp_high - self.temp_low) / self.temp_step) + 1)
+        else:
+            temperatures = self.temp_list
         # temperatures = [0. for _ in range(int(np.ceil((self.temp_high - self.temp_low) / self.temp_step)) + 1)]
         # temp_high = self.temp_high
         # for i in range(len(temperatures)):

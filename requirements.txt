@@ -2,3 +2,7 @@ numpy>=1.23.3
 scipy>=1.9.3
 matplotlib>=3.5.3
 torch
+sklearn
+pandas
+seaborn
+tqdm
